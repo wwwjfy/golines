@@ -55,8 +55,9 @@ type Shortener struct {
 
 	// Some extra params around the base formatter generated from the BaseFormatterCmd
 	// argument in the config.
-	baseFormatter     string
-	baseFormatterArgs []string
+	baseFormatter           string
+	baseFormatterArgs       []string
+	shouldAddSrcToGoImports bool
 }
 
 // NewShortener creates a new shortener instance from the provided config.
@@ -85,11 +86,23 @@ func NewShortener(config ShortenerConfig) *Shortener {
 		s.baseFormatterArgs = []string{}
 	}
 
+	if s.baseFormatter == "goimports" {
+		s.shouldAddSrcToGoImports = true
+
+		for _, i := range s.baseFormatterArgs {
+			if i == "-srcdir" {
+				s.shouldAddSrcToGoImports = false
+
+				break
+			}
+		}
+	}
+
 	return s
 }
 
 // Shorten shortens the provided golang file content bytes.
-func (s *Shortener) Shorten(contents []byte) ([]byte, error) {
+func (s *Shortener) Shorten(contents []byte, dir string) ([]byte, error) {
 	if s.config.IgnoreGenerated && s.isGenerated(contents) {
 		return contents, nil
 	}
@@ -98,7 +111,7 @@ func (s *Shortener) Shorten(contents []byte) ([]byte, error) {
 	var err error
 
 	// Do initial, non-line-length-aware formatting
-	contents, err = s.formatSrc(contents)
+	contents, err = s.formatSrc(contents, dir)
 	if err != nil {
 		return nil, fmt.Errorf("Error formatting source: %+v", err)
 	}
@@ -179,7 +192,7 @@ func (s *Shortener) Shorten(contents []byte) ([]byte, error) {
 	}
 
 	// Do final round of non-line-length-aware formatting after we've fixed up the comments
-	contents, err = s.formatSrc(contents)
+	contents, err = s.formatSrc(contents, dir)
 	if err != nil {
 		return nil, fmt.Errorf("Error formatting source: %+v", err)
 	}
@@ -189,12 +202,19 @@ func (s *Shortener) Shorten(contents []byte) ([]byte, error) {
 
 // formatSrc formats the provided source bytes using the configured "base" formatter (typically
 // goimports or gofmt).
-func (s *Shortener) formatSrc(contents []byte) ([]byte, error) {
+func (s *Shortener) formatSrc(contents []byte, dir string) ([]byte, error) {
 	if s.baseFormatter == "gofmt" {
 		return format.Source(contents)
 	}
 
-	cmd := exec.Command(s.baseFormatter, s.baseFormatterArgs...)
+	formatterArgs := s.baseFormatterArgs
+
+	if s.shouldAddSrcToGoImports && dir != "" {
+		formatterArgs = append(formatterArgs, "-srcdir", dir)
+	}
+
+	cmd := exec.Command(s.baseFormatter, formatterArgs...)
+
 	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err

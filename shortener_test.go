@@ -66,7 +66,7 @@ func TestShortener(t *testing.T) {
 			)
 		}
 
-		shortenedContents, err := shortener.Shorten(contents)
+		shortenedContents, err := shortener.Shorten(contents, "")
 		assert.Nil(t, err)
 
 		expectedPath := fixturePath[0:len(fixturePath)-3] + "__exp" + ".go"

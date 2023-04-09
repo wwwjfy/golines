@@ -133,7 +133,7 @@ func run() error {
 			return err
 		}
 
-		result, err := shortener.Shorten(contents)
+		result, err := shortener.Shorten(contents, "")
 		if err != nil {
 			return err
 		}
@@ -216,7 +216,7 @@ func processFile(shortener *Shortener, path string) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	result, err := shortener.Shorten(contents)
+	result, err := shortener.Shorten(contents, filepath.Dir(path))
 	return contents, result, err
 }
 
